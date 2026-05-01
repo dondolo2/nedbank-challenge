@@ -1,0 +1,14 @@
+# Large challenge datasets and generated artifacts
+**/data/
+**/output/
+
+# Python caches and local envs
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/venv/
+
+# Local tooling files
+.DS_Store
+.idea/
+.vscode/

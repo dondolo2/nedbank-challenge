@@ -1,38 +1,26 @@
-"""
-Bronze layer: Ingest raw source data into Delta Parquet tables.
+from pyspark.sql.functions import lit
 
-Input paths (read-only mounts — do not write here):
-  /data/input/accounts.csv
-  /data/input/transactions.jsonl
-  /data/input/customers.csv
-
-Output paths (your pipeline must create these directories):
-  /data/output/bronze/accounts/
-  /data/output/bronze/transactions/
-  /data/output/bronze/customers/
-
-Requirements:
-  - Preserve source data as-is; do not transform at this layer.
-  - Add an `ingestion_timestamp` column (TIMESTAMP) recording when each
-    record entered the Bronze layer. Use a consistent timestamp for the
-    entire ingestion run (not per-row).
-  - Write each table as a Delta Parquet table (not plain Parquet).
-  - Read paths from config/pipeline_config.yaml — do not hardcode paths.
-  - All paths are absolute inside the container (e.g. /data/input/accounts.csv).
-
-Spark configuration tip:
-  Run Spark in local[2] mode to stay within the 2-vCPU resource constraint.
-  Configure Delta Lake using the builder pattern shown in the base image docs.
-"""
+from pipeline.common import get_spark_session, load_pipeline_config, write_delta
 
 
 def run_ingestion():
-    # TODO: Implement Bronze layer ingestion.
-    #
-    # Suggested steps:
-    #   1. Load pipeline_config.yaml to get input/output paths.
-    #   2. Initialise a SparkSession with Delta Lake support (local[2]).
-    #   3. Read accounts.csv → append ingestion_timestamp → write to bronze/accounts/.
-    #   4. Read transactions.jsonl → append ingestion_timestamp → write to bronze/transactions/.
-    #   5. Read customers.csv → append ingestion_timestamp → write to bronze/customers/.
-    pass
+    config = load_pipeline_config()
+    spark = get_spark_session(config, "ingest")
+
+    input_cfg = config["input"]
+    bronze_root = config["output"]["bronze_path"]
+    run_ts = spark.sql("SELECT current_timestamp() AS ts").first()["ts"]
+
+    accounts = spark.read.option("header", True).csv(input_cfg["accounts_path"])
+    customers = spark.read.option("header", True).csv(input_cfg["customers_path"])
+    transactions = spark.read.json(input_cfg["transactions_path"])
+
+    accounts_bronze = accounts.withColumn("ingestion_timestamp", lit(run_ts))
+    customers_bronze = customers.withColumn("ingestion_timestamp", lit(run_ts))
+    transactions_bronze = transactions.withColumn("ingestion_timestamp", lit(run_ts))
+
+    write_delta(accounts_bronze, f"{bronze_root}/accounts")
+    write_delta(customers_bronze, f"{bronze_root}/customers")
+    write_delta(transactions_bronze, f"{bronze_root}/transactions")
+
+    spark.stop()

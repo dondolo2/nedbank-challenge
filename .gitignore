@@ -1,6 +1,7 @@
 # Large challenge datasets and generated artifacts
 **/data/
 **/output/
+test_data/
 
 # Python caches and local envs
 **/__pycache__/

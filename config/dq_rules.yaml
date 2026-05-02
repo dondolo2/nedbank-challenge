@@ -1,0 +1,18 @@
+# DQ rules — read by pipeline/transform.py (do not hardcode checks only in Python).
+
+null_checks:
+  transactions:
+    - transaction_id
+    - account_id
+    - transaction_type
+    - channel
+
+domain_checks:
+  transaction_type:
+    allowed: [DEBIT, CREDIT, FEE, REVERSAL]
+  channel:
+    allowed: [POS, APP, ATM, EFT, USSD, INTERNAL]
+
+currency_normalisation:
+  target_value: ZAR
+  flag_variants: true

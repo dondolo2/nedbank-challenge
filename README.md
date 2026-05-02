@@ -495,11 +495,49 @@ With 2 vCPU and data that fits comfortably in memory, 200 shuffle partitions cre
 
 ---
 
+## Output Visualisations
+
+After running the pipeline, generate automated visualisations to verify data quality and pipeline correctness:
+
+```bash
+pip install duckdb matplotlib seaborn pandas
+python scripts/generate_plots.py
+```
+
+This creates five PNG charts in the `docs/` directory:
+
+### Bronze Row Counts
+![Bronze Row Counts](docs/bronze_row_counts.png)
+
+**Proves:** All source data was ingested correctly. Shows the raw volume from each source file before any processing.
+
+### Silver DQ Flag Distribution
+![Silver DQ Flag Distribution](docs/silver_dq_distribution.png)
+
+**Proves:** Data quality issues were detected and flagged appropriately. Only generated if DQ flags are present in the data.
+
+### Gold Transaction Volume by Type
+![Gold Transaction Volume by Type](docs/gold_transaction_volume.png)
+
+**Proves:** Transactions were properly deduplicated and joined. Shows the final distribution of transaction types in the dimensional model.
+
+### Gold Customer Age Band Distribution
+![Gold Customer Age Band Distribution](docs/gold_age_band_distribution.png)
+
+**Proves:** Customer data was properly transformed and age bands were calculated correctly from date-of-birth fields.
+
+### Gold Transaction Count by Province
+![Gold Transaction Count by Province](docs/gold_transaction_by_province.png)
+
+**Proves:** Referential integrity is maintained. Shows transaction volume distributed by customer province (requires successful join between fact_transactions and dim_customers).
+
+---
+
 ## Contributors
 
 | Name | Role |
 |---|---|
-| **Mosa** | Pipeline architecture, implementation, and submission |
+| **Musa Dondolo** | Pipeline architecture, implementation, and submission |
 
 ---
 

@@ -91,25 +91,24 @@ def _create_or_merge_recent_transactions(spark: SparkSession, path: str, events_
         }
     ).execute()
 
+    # Evict rows beyond position 50 per account using a Spark DataFrame
+    # subquery — no .collect() on the driver.
     recent = spark.read.format("delta").load(path)
     window = Window.partitionBy("account_id").orderBy(col("transaction_timestamp").desc())
-    rows_to_delete = (
+    rows_to_evict = (
         recent.withColumn("rn", row_number().over(window))
         .filter(col("rn") > 50)
-        .select("account_id", "transaction_id")
-        .collect()
+        .select(
+            col("account_id").alias("evict_account_id"),
+            col("transaction_id").alias("evict_transaction_id"),
+        )
     )
-
-    if rows_to_delete:
-        conditions = []
-        for row in rows_to_delete:
-            account_id = str(row["account_id"]).replace("'", "\\'")
-            transaction_id = str(row["transaction_id"]).replace("'", "\\'")
-            conditions.append(
-                f"(account_id = '{account_id}' AND transaction_id = '{transaction_id}')"
-            )
-        condition = " OR ".join(conditions)
-        DeltaTable.forPath(spark, path).delete(condition)
+    # Use Delta merge with a NOT EXISTS pattern: delete matched rows via a
+    # whenMatchedDelete merge against the evict set.
+    DeltaTable.forPath(spark, path).alias("t").merge(
+        rows_to_evict.alias("e"),
+        "t.account_id = e.evict_account_id AND t.transaction_id = e.evict_transaction_id",
+    ).whenMatchedDelete().execute()
 
 
 def _prepare_stream_events(spark: SparkSession, file_path: str):

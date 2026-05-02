@@ -1,5 +1,3 @@
-# DQ rules — read by pipeline/transform.py (do not hardcode checks only in Python).
-
 null_checks:
   transactions:
     - transaction_id
@@ -16,3 +14,23 @@ domain_checks:
 currency_normalisation:
   target_value: ZAR
   flag_variants: true
+
+dq_handling:
+  DUPLICATE_DEDUPED:
+    detection: duplicate transaction_id in transactions.jsonl
+    handling_action: DEDUPLICATED_KEEP_FIRST
+  ORPHANED_ACCOUNT:
+    detection: transaction account_id not in accounts.csv
+    handling_action: QUARANTINED
+  TYPE_MISMATCH:
+    detection: amount field delivered as non-numeric string that fails DECIMAL cast
+    handling_action: CAST_TO_DECIMAL
+  DATE_FORMAT:
+    detection: date field in unrecognised format or null after multi-format parse
+    handling_action: NORMALISED_DATE
+  CURRENCY_VARIANT:
+    detection: currency field not equal to ZAR after trim+upper
+    handling_action: NORMALISED_CURRENCY
+  NULL_REQUIRED:
+    detection: account_id primary key is null in accounts.csv
+    handling_action: EXCLUDED_NULL_PK

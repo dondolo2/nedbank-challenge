@@ -96,6 +96,7 @@ def run_provisioning():
             "transaction_timestamp",
             "transaction_type",
             "merchant_category",
+            "merchant_subcategory",
             "amount",
             "currency",
             "channel",

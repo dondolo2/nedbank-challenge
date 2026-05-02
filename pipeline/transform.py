@@ -2,7 +2,7 @@ import logging
 from typing import List
 
 from pyspark.sql import DataFrame, Window
-from pyspark.sql.functions import col, concat_ws, lit, row_number, to_date, to_timestamp, trim, upper, when
+from pyspark.sql.functions import coalesce, col, concat_ws, from_unixtime, lit, row_number, to_date, to_timestamp, trim, upper, when
 from pyspark.sql.types import DecimalType, IntegerType
 
 from pipeline.common import ensure_output_dirs, get_spark_session, load_dq_rules, load_pipeline_config, write_delta
@@ -67,6 +67,14 @@ def _dq_flag_expr(dq_rules: dict):
     )
 
 
+def parse_flexible_date(col_expr):
+    return coalesce(
+        to_date(col_expr, "yyyy-MM-dd"),
+        to_date(col_expr, "dd/MM/yyyy"),
+        to_date(from_unixtime(col_expr.cast("long")), "yyyy-MM-dd"),
+    )
+
+
 def run_transformation():
     config = load_pipeline_config()
     dq_rules = load_dq_rules()
@@ -85,12 +93,12 @@ def run_transformation():
         col("customer_ref").cast("string"),
         upper(trim(col("account_type"))).alias("account_type"),
         upper(trim(col("account_status"))).alias("account_status"),
-        to_date(col("open_date"), "yyyy-MM-dd").alias("open_date"),
+        parse_flexible_date(col("open_date")).alias("open_date"),
         upper(trim(col("product_tier"))).alias("product_tier"),
         upper(trim(col("digital_channel"))).alias("digital_channel"),
         col("credit_limit").cast(DecimalType(18, 2)).alias("credit_limit"),
         col("current_balance").cast(DecimalType(18, 2)).alias("current_balance"),
-        to_date(col("last_activity_date"), "yyyy-MM-dd").alias("last_activity_date"),
+        parse_flexible_date(col("last_activity_date")).alias("last_activity_date"),
         col("ingestion_timestamp"),
     )
 
@@ -102,11 +110,13 @@ def run_transformation():
         upper(trim(col("segment"))).alias("segment"),
         col("risk_score").cast(IntegerType()).alias("risk_score"),
         upper(trim(col("kyc_status"))).alias("kyc_status"),
-        to_date(col("dob"), "yyyy-MM-dd").alias("dob"),
+        parse_flexible_date(col("dob")).alias("dob"),
         col("ingestion_timestamp"),
     )
 
     account_ids = accounts.select("account_id").distinct()
+
+    merchant_subcategory_col = col("merchant_subcategory") if "merchant_subcategory" in transactions.columns else lit(None)
 
     transactions = dedupe_on_key(transactions, "transaction_id").select(
         col("transaction_id").cast("string"),
@@ -115,6 +125,7 @@ def run_transformation():
         col("transaction_time").cast("string").alias("transaction_time_raw"),
         upper(trim(col("transaction_type"))).alias("transaction_type"),
         col("merchant_category").cast("string"),
+        when(merchant_subcategory_col.isNotNull(), merchant_subcategory_col.cast("string")).otherwise(lit(None)).alias("merchant_subcategory"),
         col("amount").cast("string").alias("amount_raw"),
         upper(trim(col("currency"))).alias("currency_raw"),
         upper(trim(col("channel"))).alias("channel"),
@@ -123,11 +134,11 @@ def run_transformation():
     )
 
     transactions = (
-        transactions.withColumn("transaction_date", to_date(col("transaction_date_raw"), "yyyy-MM-dd"))
+        transactions.withColumn("transaction_date", parse_flexible_date(col("transaction_date_raw")))
         .withColumn(
             "transaction_timestamp",
             to_timestamp(
-                concat_ws(" ", col("transaction_date_raw"), col("transaction_time_raw")),
+                concat_ws(" ", col("transaction_date"), col("transaction_time_raw")),
                 "yyyy-MM-dd HH:mm:ss",
             ),
         )

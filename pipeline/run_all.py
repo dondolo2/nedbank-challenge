@@ -31,8 +31,13 @@ def _configure_jvm_hosts_for_isolated_network() -> None:
 
 _configure_jvm_hosts_for_isolated_network()
 
+import time
+
+from pipeline.common import load_pipeline_config
+from pipeline.dq_report import write_dq_report
 from pipeline.ingest import run_ingestion
 from pipeline.provision import run_provisioning
+from pipeline.stream_ingest import run_stream_ingestion
 from pipeline.transform import run_transformation
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -40,6 +45,16 @@ logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
+    pipeline_start_time = time.time()
     run_ingestion()
     run_transformation()
     run_provisioning()
+
+    write_dq_report(spark=None, config=load_pipeline_config(), pipeline_start_time=pipeline_start_time)
+
+    stream_dir = "/data/stream"
+    if os.path.isdir(stream_dir) and os.listdir(stream_dir):
+        logger.info("Stream directory found — running Stage 3 stream ingestion")
+        run_stream_ingestion()
+    else:
+        logger.info("No stream directory — skipping Stage 3 stream ingestion")

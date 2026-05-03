@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t nedbank-submission:test .
+
+      - name: Prepare output directory
+        run: |
+          mkdir -p test_data/output
+          mkdir -p docs
+
+      - name: Run pipeline in Docker
+        run: |
+          docker run --rm \
+            --network=none \
+            --memory=2g --memory-swap=2g --cpus=2 \
+            --read-only \
+            --tmpfs /tmp:rw,size=512m \
+            -v "${{ github.workspace }}/test_data/input:/data/input:ro" \
+            -v "${{ github.workspace }}/test_data/config:/data/config:ro" \
+            -v "${{ github.workspace }}/test_data/output:/data/output:rw" \
+            nedbank-submission:test
+
+      - name: Generate visualisations
+        run: |
+          docker run --rm \
+            --network=none \
+            --memory=2g --memory-swap=2g --cpus=2 \
+            --read-only \
+            --tmpfs /tmp:rw,size=512m \
+            -v "${{ github.workspace }}:/app:ro" \
+            -v "${{ github.workspace }}/test_data/output:/data/output:rw" \
+            nedbank-submission:test \
+            python scripts/generate_plots.py
+  

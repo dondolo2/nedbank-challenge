@@ -20,6 +20,7 @@
 - [Configuration Reference](#configuration-reference)
 - [Design Decisions](#design-decisions)
 - [Scoring Alignment](#scoring-alignment)
+- [Output Visualisations](#output-visualisations)
 - [Contributors](#contributors)
 
 ---

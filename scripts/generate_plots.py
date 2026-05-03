@@ -34,9 +34,13 @@ def read_delta_table(con, layer, table_name):
         return None
 
     try:
+        # Create unique table name to avoid conflicts across layers
+        unique_table_name = f"{layer}_{table_name}"
+        # Drop table if it exists from previous runs
+        con.execute(f"DROP TABLE IF EXISTS {unique_table_name}")
         # Read all parquet files in the directory
-        con.execute(f"CREATE TABLE {table_name} AS SELECT * FROM read_parquet('{path}')")
-        return table_name
+        con.execute(f"CREATE TABLE {unique_table_name} AS SELECT * FROM read_parquet('{path}')")
+        return unique_table_name
     except Exception as e:
         print(f"Error reading {table_name}: {e}")
         return None

@@ -1,2 +1,7 @@
-# Extra deps beyond nedbank-de-challenge/base:1.0 — keep empty unless required.
-# Base image already includes pyspark, delta-spark, pyyaml, duckdb, etc.
+# Extra deps beyond nedbank-de-challenge/base:1.0
+# Use this file for local installs and post-pipeline tooling.
+
+duckdb
+matplotlib
+seaborn
+pandas
